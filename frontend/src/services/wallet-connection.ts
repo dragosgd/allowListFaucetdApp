@@ -52,4 +52,11 @@ export class BrowserWalletProvider extends WalletProvider {
     ): Promise<VerifiablePresentation> {
         return this.provider.requestVerifiablePresentation(challenge, statement);
     }
+
+    async disconnect(): Promise<void> {
+        // Clear the singleton instance
+        browserWalletInstance = undefined;
+        // Emit disconnection event
+        this.onAccountChanged(undefined);
+    }
 }
