@@ -169,6 +169,20 @@ export default function AllowListDApp() {
         }
     };
 
+    const handleDisconnect = async () => {
+        if (provider) {
+            await provider.disconnect?.();
+            setProvider(undefined);
+            setSelectedAccount(undefined);
+            setTokenBalance('');
+            setMessage('Disconnected from wallet');
+            // Clear any other state as needed
+            setProofStatus('');
+            setTransactionHashes({});
+            setCurrentProof(null);
+        }
+    };
+
     const startAllowListProcess = async () => {
         if (!provider || !selectedAccount) {
             setMessage('Missing required data for allowlist process')
@@ -356,7 +370,14 @@ export default function AllowListDApp() {
                                                 </div>
                                             </div>
                                         </div>
-
+                                        <div className="d-grid mt-2">
+                                            <button
+                                                className="btn btn-outline-danger btn-sm"
+                                                onClick={handleDisconnect}
+                                            >
+                                                <i className="bi bi-power me-2"></i>Disconnect Wallet
+                                            </button>
+                                        </div>
                                         {/* Token Balance Display */}
                                         <div className="mt-3">
                                             <div className="card border-0 bg-light">
