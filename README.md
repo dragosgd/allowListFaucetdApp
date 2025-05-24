@@ -80,6 +80,13 @@ npm run start:dev     # Runs on :3001
 ```bash
 cd frontend
 npm install
+
+Create .env file in frontend root:
+env# Frontend example env file
+GOVERNANCE_ACCOUNT=TOKEN_ISSUER_ACCOUNT_ADDRESS_UI_USE_ONLY
+TOKEN_ID=YOUR_TOKEN_ID
+BACKEND_URL=http://localhost:3001
+
 npm run build
 npm run start         # Runs on :5173
 ```

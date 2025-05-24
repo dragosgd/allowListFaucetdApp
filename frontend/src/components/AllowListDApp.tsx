@@ -11,7 +11,9 @@ import { BrowserWalletProvider, WalletProvider } from '../services/wallet-connec
 import { getVerifierURL } from '../services/verification-service';
 import { Buffer } from 'buffer';
 
-const GOVERNANCE_ACCOUNT = "4tFVVpFpgiEmSjWjZg5sZQ2oR5yKCpjUgoubZ3sdXXZekaPbm2";
+const GOVERNANCE_ACCOUNT = process.env.GOVERNANCE_ACCOUNT;
+const TOKEN_ID = process.env.TOKEN_ID;
+const BACKEND_URL = process.env.BACKEND_URL;
 
 export default function AllowListDApp() {
     const [provider, setProvider] = useState<WalletProvider>();
@@ -26,7 +28,6 @@ export default function AllowListDApp() {
     const [balanceLoading, setBalanceLoading] = useState(false);
 
     // Configuration for PLT token - no contract address needed for protocol-level tokens
-    const TOKEN_ID = 'PabloToken2';
 
     useEffect(() => {
         if (provider !== undefined) {
@@ -63,7 +64,7 @@ export default function AllowListDApp() {
         
         setBalanceLoading(true);
         try {
-            const response = await fetch(`http://localhost:3001/mint/balance/${TOKEN_ID}/${accountAddress}`);
+            const response = await fetch(`${BACKEND_URL}/mint/balance/${TOKEN_ID}/${accountAddress}`);
             if (response.ok) {
                 const balanceData = await response.json();
                 setTokenBalance(balanceData.balance);
@@ -194,7 +195,7 @@ export default function AllowListDApp() {
 
         try {
             // Send request to backend
-            const response = await fetch('http://localhost:3001/allowlist/add-user', {
+            const response = await fetch(`${BACKEND_URL}/allowlist/add-user`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -232,7 +233,7 @@ export default function AllowListDApp() {
 
         const poll = async () => {
             try {
-                const response = await fetch(`http://localhost:3001/allowlist/status/${processId}`)
+                const response = await fetch(`${BACKEND_URL}/allowlist/status/${processId}`)
                 if (!response.ok) {
                     throw new Error('Failed to get process status')
                 }
