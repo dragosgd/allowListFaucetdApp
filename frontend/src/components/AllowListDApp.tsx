@@ -138,8 +138,7 @@ export default function AllowListDApp() {
                 },
                 body: proof.toString(),
             });
-
-            if (true/* resp.ok current devnet wallet does not work for proof verification*/) {
+            if (resp.ok) {
                 setProofStatus('✅ Proof verified successfully!');
                 setMessage('EU nationality verified. Processing your token allocation...');
 

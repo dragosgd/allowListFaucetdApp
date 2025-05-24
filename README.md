@@ -35,7 +35,19 @@ Frontend (React)          Backend (NestJS)           Concordium Blockchain
 - Concordium Browser Wallet (devnet version)
 - Governance wallet export with PLT minting permissions
 
-### 1. Backend Setup
+### 1. Verifier Service Setup
+```bash
+cd services/web3id-verifier-ts
+yarn install
+
+# Start the verifier service connected to devnet
+yarn start --endpoint https://[devnet-address]:[devnet-port]
+```
+
+# Service runs on :8080
+Note: The verifier service connects to the Concordium devnet via an https endpoint. This service is required for zero-knowledge proof verification.
+
+### 2. Backend Setup
 ```bash
 cd backend
 npm install
@@ -64,7 +76,7 @@ NODE_ENV=development
 npm run start:dev     # Runs on :3001
 ```
 
-### 2. Frontend Setup
+### 3. Frontend Setup
 ```bash
 cd frontend
 npm install
