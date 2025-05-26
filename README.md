@@ -22,7 +22,7 @@ This dApp automatically distributes PLT tokens to users who prove EU nationality
 ```
 Frontend (React)          Backend (NestJS)           Concordium Blockchain
      │                         │                           │
-     ├─ Wallet Connection      ├─ Process Orchestration    ├─ PLT Token Contract
+     ├─ Wallet Connection      ├─ Process Orchestration    ├─ Protocol Native Tokens
      ├─ Proof Generation       ├─ Governance Wallet        ├─ Allowlist Management  
      ├─ Real-time Updates      ├─ Transaction Signing      ├─ Token Minting
      └─ Balance Display        └─ Status Tracking          └─ Token Transfers
