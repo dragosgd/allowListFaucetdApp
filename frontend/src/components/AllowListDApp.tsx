@@ -164,8 +164,8 @@ export default function AllowListDApp() {
 
             if (resp.ok) {
                 setProofStatus('✅ Proof verified successfully!');
-                setMessage('EU nationality verified. Checking eligibility...');
-                await checkUserEligibilityAndProceed();
+                setMessage('EU nationality verified. Starting token allocation process...');
+                await startAllowListProcess();
             } else {
                 const body = await resp.json();
                 setProofStatus(`❌ Proof verification failed`);
@@ -177,41 +177,6 @@ export default function AllowListDApp() {
             setMessage('Failed to request nationality proof');
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    const checkUserEligibilityAndProceed = async () => {
-        if (!selectedAccount) {
-            setMessage('No account connected');
-            return;
-        }
-
-        setMessage('Checking your eligibility...');
-
-        try {
-            const response = await fetch(`${BACKEND_URL}/allowlist/verify-user/${selectedAccount}/${TOKEN_ID}`);
-
-            if (!response.ok) {
-                throw new Error(`Failed to check eligibility: ${response.statusText}`);
-            }
-
-            const eligibilityData = await response.json();
-
-            if (eligibilityData.isOnAllowList) {
-                setProofStatus('✅ Already eligible!');
-                setMessage(`🎉 Good news! You have already been airdropped and are on the allow list for ${TOKEN_ID}.\n\nNo further action needed - your tokens should already be in your wallet.`);
-                setIsOnAllowList(true);
-                await fetchTokenBalance(selectedAccount);
-                return;
-            }
-
-            setMessage('Eligibility confirmed! Starting token allocation process...');
-            await startAllowListProcess();
-
-        } catch (error: any) {
-            console.error('Error checking eligibility:', error);
-            setMessage(`Failed to check eligibility: ${error.message}`);
-            setProofStatus('❌ Failed to check eligibility');
         }
     };
 
@@ -537,8 +502,7 @@ export default function AllowListDApp() {
                                         <strong>Proof of concept, how it works:</strong>
                                         <ol className="mb-0 mt-1 ps-3">
                                             <li>Verify you're eligible for the {TOKEN_ID} tokens</li>
-                                            <li>Check if you already received tokens</li>
-                                            <li>If new: Add to allow list</li>
+                                            <li>Add to allow list</li>
                                             <li>Mint 10 new {TOKEN_ID} tokens</li>
                                             <li>Transfer tokens directly to your wallet</li>
                                         </ol>
@@ -592,10 +556,10 @@ export default function AllowListDApp() {
                         <div className="col-12">
                             {message && (
                                 <div className={`alert border-0 shadow-sm ${message.includes('Failed') || message.includes('Error') ?
-                                    'alert-danger' : 'alert-info'
+                                        'alert-danger' : 'alert-info'
                                     }`}>
                                     <i className={`bi me-2 ${message.includes('Failed') || message.includes('Error') ?
-                                        'bi-exclamation-triangle' : 'bi-info-circle'
+                                            'bi-exclamation-triangle' : 'bi-info-circle'
                                         }`}></i>
                                     <span style={messageStyle}>{message}</span>
                                 </div>
