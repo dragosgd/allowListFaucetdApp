@@ -11,7 +11,6 @@ import { BrowserWalletProvider, WalletProvider } from '../services/wallet-connec
 import { getVerifierURL } from '../services/verification-service';
 import { Buffer } from 'buffer';
 
-const GOVERNANCE_ACCOUNT = process.env.GOVERNANCE_ACCOUNT;
 const TOKEN_ID = process.env.TOKEN_ID;
 const BACKEND_URL = process.env.BACKEND_URL;
 
@@ -21,13 +20,13 @@ export default function AllowListDApp() {
     const [proofStatus, setProofStatus] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState<string>('');
-    const [transactionHashes, setTransactionHashes] = useState<{[key: string]: string}>({});
+    const [transactionHashes, setTransactionHashes] = useState<{ [key: string]: string }>({});
     const [showProofDetails, setShowProofDetails] = useState(false);
     const [currentProof, setCurrentProof] = useState<string | null>(null);
     const [tokenBalance, setTokenBalance] = useState<string>('');
     const [balanceLoading, setBalanceLoading] = useState(false);
-
-    // Configuration for PLT token - no contract address needed for protocol-level tokens
+    const [isOnAllowList, setIsOnAllowList] = useState<boolean | null>(null);
+    const [allowListChecking, setAllowListChecking] = useState(false);
 
     useEffect(() => {
         if (provider !== undefined) {
@@ -36,8 +35,10 @@ export default function AllowListDApp() {
                 // Fetch balance when account changes
                 if (account) {
                     fetchTokenBalance(account);
+                    checkAllowListStatus(account);
                 } else {
                     setTokenBalance('');
+                    setIsOnAllowList(null);
                 }
             });
             return () => {
@@ -50,6 +51,7 @@ export default function AllowListDApp() {
     useEffect(() => {
         if (selectedAccount && provider) {
             fetchTokenBalance(selectedAccount);
+            checkAllowListStatus(selectedAccount);
         }
     }, [selectedAccount, provider]);
 
@@ -61,7 +63,7 @@ export default function AllowListDApp() {
 
     const fetchTokenBalance = async (accountAddress: string) => {
         if (!accountAddress) return;
-        
+
         setBalanceLoading(true);
         try {
             const response = await fetch(`${BACKEND_URL}/mint/balance/${TOKEN_ID}/${accountAddress}`);
@@ -77,6 +79,27 @@ export default function AllowListDApp() {
             setTokenBalance('Error');
         } finally {
             setBalanceLoading(false);
+        }
+    };
+
+    const checkAllowListStatus = async (accountAddress: string) => {
+        if (!accountAddress) return;
+
+        setAllowListChecking(true);
+        try {
+            const response = await fetch(`${BACKEND_URL}/allowlist/verify-user/${accountAddress}/${TOKEN_ID}`);
+            if (response.ok) {
+                const statusData = await response.json();
+                setIsOnAllowList(statusData.isOnAllowList);
+            } else {
+                console.error('Failed to check allow list status:', response.statusText);
+                setIsOnAllowList(null);
+            }
+        } catch (error) {
+            console.error('Error checking allow list status:', error);
+            setIsOnAllowList(null);
+        } finally {
+            setAllowListChecking(false);
         }
     };
 
@@ -97,14 +120,14 @@ export default function AllowListDApp() {
             const nationalityStatement: AtomicStatementV2 = {
                 type: StatementTypes.AttributeInSet,
                 attributeTag: 'nationality',
-                set: euCountryCodes // EU country codes
+                set: euCountryCodes
             };
 
             const credentialStatements: CredentialStatements = [{
                 statement: [nationalityStatement],
                 idQualifier: {
                     type: 'cred' as const, // Use 'cred' for identity provider
-                    issuers: [0] // Identity Provider 0 on testnet
+                    issuers: [0] // Identity Provider 0 on testnet/devnet
                 }
             } as CredentialStatement];
 
@@ -130,7 +153,6 @@ export default function AllowListDApp() {
                 return;
             }
 
-            // Verify the proof
             setProofStatus('Verifying proof...');
             const resp = await fetch(`${getVerifierURL()}/v0/verify`, {
                 method: 'POST',
@@ -139,13 +161,11 @@ export default function AllowListDApp() {
                 },
                 body: proof.toString(),
             });
+
             if (resp.ok) {
                 setProofStatus('✅ Proof verified successfully!');
-                setMessage('EU nationality verified. Processing your token allocation...');
-
-                // Send request to backend to start the complete process
-                await startAllowListProcess()
-
+                setMessage('EU nationality verified. Starting token allocation process...');
+                await startAllowListProcess();
             } else {
                 const body = await resp.json();
                 setProofStatus(`❌ Proof verification failed`);
@@ -176,6 +196,7 @@ export default function AllowListDApp() {
             setProvider(undefined);
             setSelectedAccount(undefined);
             setTokenBalance('');
+            setIsOnAllowList(null);
             setMessage('Disconnected from wallet');
             // Clear any other state as needed
             setProofStatus('');
@@ -186,15 +207,14 @@ export default function AllowListDApp() {
 
     const startAllowListProcess = async () => {
         if (!provider || !selectedAccount) {
-            setMessage('Missing required data for allowlist process')
-            return
+            setMessage('Missing required data for allowlist process');
+            return;
         }
 
-        setIsLoading(true)
-        setMessage('Initiating token allocation process...')
+        setIsLoading(true);
+        setMessage('Initiating token allocation process...');
 
         try {
-            // Send request to backend
             const response = await fetch(`${BACKEND_URL}/allowlist/add-user`, {
                 method: 'POST',
                 headers: {
@@ -204,123 +224,128 @@ export default function AllowListDApp() {
                     userAccount: selectedAccount,
                     tokenId: TOKEN_ID
                 }),
-            })
+            });
 
             if (!response.ok) {
-                throw new Error(`Backend request failed: ${response.statusText}`)
+                throw new Error(`Backend request failed: ${response.statusText}`);
             }
 
-            const processStatus = await response.json()
-            const processId = processStatus.processId
+            const processStatus = await response.json();
+            const processId = processStatus.processId;
 
-            setMessage(`Process started: ${processId}`)
-
-            // Poll for status updates
-            await pollProcessStatus(processId)
+            setMessage(`Process started: ${processId}`);
+            await pollProcessStatus(processId);
 
         } catch (error: any) {
-            console.error('Error in allowlist process:', error)
-            setMessage(`Failed to start allowlist process: ${error.message}`)
-            setProofStatus('❌ Failed to start allowlist process')
+            console.error('Error in allowlist process:', error);
+            setMessage(`Failed to start allowlist process: ${error.message}`);
+            setProofStatus('❌ Failed to start allowlist process');
         } finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
-    }
+    };
 
     const pollProcessStatus = async (processId: string) => {
-        const maxAttempts = 90 // 7.5 minutes max (5 seconds * 90)
-        let attempts = 0
+        const maxAttempts = 90;
+        let attempts = 0;
 
         const poll = async () => {
             try {
-                const response = await fetch(`${BACKEND_URL}/allowlist/status/${processId}`)
+                const response = await fetch(`${BACKEND_URL}/allowlist/status/${processId}`);
                 if (!response.ok) {
-                    throw new Error('Failed to get process status')
+                    throw new Error('Failed to get process status');
                 }
 
-                const status = await response.json()
-
-                // Update UI with current status
-                updateProcessStatus(status)
+                const status = await response.json();
+                updateProcessStatus(status);
 
                 if (status.status === 'completed') {
-                    setProofStatus('✅ Successfully added to allow list and received tokens!')
-                    setMessage('🎉 Process completed successfully!\n✅ Added to allow list\n✅ Tokens minted\n✅ Tokens transferred to your account')
-                    
-                    // Store all transaction hashes for the Transaction Details section
+                    setProofStatus('✅ Successfully added to allow list and received tokens!');
+                    setMessage('🎉 Process completed successfully!\n✅ Added to allow list\n✅ Tokens minted\n✅ Tokens transferred to your account');
+
                     if (status.result) {
-                        const txHashes: {[key: string]: string} = {}
+                        const txHashes: { [key: string]: string } = {};
                         if (status.result.allowListTransactionHash) {
-                            txHashes['Allow List'] = status.result.allowListTransactionHash
+                            txHashes['Allow List'] = status.result.allowListTransactionHash;
                         }
                         if (status.result.mintTransactionHash) {
-                            txHashes['Mint'] = status.result.mintTransactionHash
+                            txHashes['Mint'] = status.result.mintTransactionHash;
                         }
                         if (status.result.transferTransactionHash) {
-                            txHashes['Transfer'] = status.result.transferTransactionHash
+                            txHashes['Transfer'] = status.result.transferTransactionHash;
                         }
-                        
-                        setTransactionHashes(txHashes)
+                        setTransactionHashes(txHashes);
                     }
-                    
-                    // Refresh balance after successful completion
+
+                    setIsOnAllowList(true);
                     if (selectedAccount) {
                         setTimeout(() => fetchTokenBalance(selectedAccount), 2000);
                     }
-                    return
+                    return;
                 } else if (status.status === 'failed') {
-                    setProofStatus('❌ Process failed')
-                    setMessage(`Process failed: ${status.error}`)
-                    return
+                    setProofStatus('❌ Process failed');
+                    setMessage(`Process failed: ${status.error}`);
+                    return;
                 } else if (attempts >= maxAttempts) {
-                    setProofStatus('❌ Process timeout')
-                    setMessage('Process timed out - please check status manually')
-                    return
+                    setProofStatus('❌ Process timeout');
+                    setMessage('Process timed out - please check status manually');
+                    return;
                 }
 
-                // Continue polling
-                attempts++
-                setTimeout(poll, 5000) // Poll every 5 seconds
+                attempts++;
+                setTimeout(poll, 5000);
             } catch (error: any) {
-                console.error('Error polling status:', error)
-                setMessage(`Error checking status: ${error.message}`)
+                console.error('Error polling status:', error);
+                setMessage(`Error checking status: ${error.message}`);
             }
-        }
+        };
 
-        poll()
-    }
+        poll();
+    };
 
     const updateProcessStatus = (status: any) => {
-        const completedSteps = status.steps.filter((step: any) => step.status === 'completed').length
-        const totalSteps = status.steps.length
-        const progress = Math.round((completedSteps / totalSteps) * 100)
+        const completedSteps = status.steps.filter((step: any) => step.status === 'completed').length;
+        const totalSteps = status.steps.length;
+        const progress = Math.round((completedSteps / totalSteps) * 100);
 
-        // Find current step
-        const currentStep = status.steps.find((step: any) => step.status === 'processing')
+        const currentStep = status.steps.find((step: any) => step.status === 'processing');
         if (currentStep) {
-            setProofStatus(`🔄 ${currentStep.step}... (${progress}%)`)
+            setProofStatus(`🔄 ${currentStep.step}... (${progress}%)`);
         } else {
-            setProofStatus(`⏳ Processing... (${progress}%)`)
+            setProofStatus(`⏳ Processing... (${progress}%)`);
         }
 
-        // Show detailed step information with NEW FLOW ORDER
         const stepDetails = status.steps.map((step: any) => {
             const icon = step.status === 'completed' ? '✅' :
                 step.status === 'processing' ? '🔄' :
-                    step.status === 'failed' ? '❌' : '⏳'
-            const txInfo = step.transactionHash ? ` (TX: ${step.transactionHash.substring(0, 8)}...)` : ''
-            return `${icon} ${step.step}${txInfo}`
-        }).join('\n')
+                    step.status === 'failed' ? '❌' : '⏳';
+            const txInfo = step.transactionHash ? ` (TX: ${step.transactionHash.substring(0, 8)}...)` : '';
+            return `${icon} ${step.step}${txInfo}`;
+        }).join('\n');
 
-        setMessage(`Blockchain Transaction Status:\n${stepDetails}\n\nProcess: 📋 Eligibility → 🏭 Mint → 💸 Transfer\nNote: Each step takes ~4 seconds to finalize on Concordium`)
-    }
+        setMessage(`Blockchain Transaction Status:\n${stepDetails}\n\nProcess: 📋 Eligibility → 🏭 Mint → 💸 Transfer\nNote: Each step takes ~4 seconds to finalize on Concordium`);
+    };
+
+    const getButtonState = () => {
+        if (!provider || isLoading) {
+            return { disabled: true, text: isLoading ? 'Processing...' : `Verify EU Nationality & Get ${TOKEN_ID}` };
+        }
+
+        if (isOnAllowList === true) {
+            return { disabled: true, text: `Already Received ${TOKEN_ID} ✅` };
+        }
+
+        return { disabled: false, text: `Verify EU Nationality & Get ${TOKEN_ID}` };
+    };
+
+    const buttonState = getButtonState();
 
     const messageStyle = {
         whiteSpace: 'pre-line' as const,
         wordBreak: 'break-word' as const,
         fontFamily: 'monospace',
         fontSize: '0.9rem'
-    }
+    };
 
     return (
         <main className="min-vh-100 bg-light">
@@ -371,6 +396,50 @@ export default function AllowListDApp() {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Allow List Status Display */}
+                                        <div className="mt-3">
+                                            <div className="card border-0 bg-light">
+                                                <div className="card-body p-3">
+                                                    <h6 className="card-title fw-light mb-2">
+                                                        <i className="bi bi-shield-check me-2"></i>Allow List Status
+                                                    </h6>
+                                                    <div className="d-flex align-items-center justify-content-between">
+                                                        <div>
+                                                            {allowListChecking ? (
+                                                                <span className="text-muted">
+                                                                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                                                    Checking...
+                                                                </span>
+                                                            ) : isOnAllowList === true ? (
+                                                                <span className="fw-bold text-success">
+                                                                    <i className="bi bi-check-circle-fill me-1"></i>
+                                                                    On Allow List
+                                                                </span>
+                                                            ) : isOnAllowList === false ? (
+                                                                <span className="fw-bold text-warning">
+                                                                    <i className="bi bi-dash-circle-fill me-1"></i>
+                                                                    Not on Allow List
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-muted">
+                                                                    <i className="bi bi-question-circle me-1"></i>
+                                                                    Status Unknown
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            className="btn btn-sm btn-outline-secondary"
+                                                            onClick={() => selectedAccount && checkAllowListStatus(selectedAccount)}
+                                                            disabled={allowListChecking || !selectedAccount}
+                                                        >
+                                                            <i className="bi bi-arrow-clockwise"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div className="d-grid mt-2">
                                             <button
                                                 className="btn btn-outline-danger btn-sm"
@@ -379,6 +448,7 @@ export default function AllowListDApp() {
                                                 <i className="bi bi-power me-2"></i>Disconnect Wallet
                                             </button>
                                         </div>
+
                                         {/* Token Balance Display */}
                                         <div className="mt-3">
                                             <div className="card border-0 bg-light">
@@ -420,35 +490,30 @@ export default function AllowListDApp() {
                         <div className="card border-0 shadow-sm h-100">
                             <div className="card-body p-4">
                                 <h5 className="card-title fw-light mb-4">
-                                    <i className="bi bi-globe-europe-africa me-2"></i>EU nationality Verification
+                                    <i className="bi bi-globe-europe-africa me-2"></i>EU Nationality Verification
                                 </h5>
                                 <p className="text-muted small mb-4">
                                     Verify your EU nationality to be added to the token's allow list and receive tokens.
                                 </p>
-                                
+
                                 {/* Process flow description */}
                                 <div className="alert alert-info border-0 mb-3">
                                     <div className="small">
                                         <strong>Proof of concept, how it works:</strong>
                                         <ol className="mb-0 mt-1 ps-3">
                                             <li>Verify you're eligible for the {TOKEN_ID} tokens</li>
+                                            <li>Add to allow list</li>
                                             <li>Mint 10 new {TOKEN_ID} tokens</li>
                                             <li>Transfer tokens directly to your wallet</li>
                                         </ol>
                                     </div>
                                 </div>
 
-                                <div className="small text-muted mb-3">
-                                    <strong>Token governance account:</strong>
-                                    <div className="font-monospace mt-1" style={{ fontSize: '0.75rem', wordBreak: 'break-all' }}>
-                                        {GOVERNANCE_ACCOUNT}
-                                    </div>
-                                </div>
                                 <div className="d-grid">
                                     <button
-                                        className="btn btn-dark py-3"
+                                        className={`btn py-3 ${buttonState.disabled ? 'btn-secondary' : 'btn-dark'}`}
                                         onClick={requestCitizenshipProof}
-                                        disabled={!provider || isLoading}
+                                        disabled={buttonState.disabled}
                                     >
                                         {isLoading ? (
                                             <>
@@ -456,7 +521,7 @@ export default function AllowListDApp() {
                                                 Processing...
                                             </>
                                         ) : (
-                                            `Verify EU Nationality & Get ${TOKEN_ID}`
+                                            buttonState.text
                                         )}
                                     </button>
                                 </div>

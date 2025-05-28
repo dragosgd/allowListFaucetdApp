@@ -83,7 +83,6 @@ npm install
 
 Create .env file in frontend root:
 env# Frontend example env file
-GOVERNANCE_ACCOUNT=TOKEN_ISSUER_ACCOUNT_ADDRESS_UI_USE_ONLY
 TOKEN_ID=YOUR_TOKEN_ID
 BACKEND_URL=http://localhost:3001
 
@@ -98,7 +97,6 @@ Open `http://localhost:5173` and connect your Concordium wallet.
 
 ### Frontend
 - Update `TOKEN_ID` in `AllowListDApp.tsx`
-- Update `GOVERNANCE_ACCOUNT` in `AllowListDApp.tsx`, this is just a hardcoded value for the UI
 - Ensure backend URL points to `:3001`
 
 ### Backend  
