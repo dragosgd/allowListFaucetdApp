@@ -21,7 +21,6 @@ export default defineConfig(({ mode }) => {
     define: {
       global: 'globalThis',
       'process.env': {
-        GOVERNANCE_ACCOUNT: `${env.GOVERNANCE_ACCOUNT}`,
         TOKEN_ID: `${env.TOKEN_ID}`,
         BACKEND_URL: `${env.BACKEND_URL}`
       }
